@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { getImage, formatDate } from './storage'
+import { getImage, formatDate, getAdvances } from './storage'
 
 export async function generatePDF(trip, expenses) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -35,7 +35,6 @@ export async function generatePDF(trip, expenses) {
     doc.text(tripMeta, margin, 30)
   }
 
-  // Generated date top right
   doc.setFontSize(8)
   doc.setTextColor(120, 120, 150)
   const genDate = `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
@@ -76,9 +75,7 @@ export async function generatePDF(trip, expenses) {
       fontSize: 9,
       cellPadding: 5,
     },
-    alternateRowStyles: {
-      fillColor: [245, 246, 250]
-    },
+    alternateRowStyles: { fillColor: [245, 246, 250] },
     columnStyles: {
       0: { cellWidth: 8, halign: 'center' },
       1: { cellWidth: 24 },
@@ -91,20 +88,85 @@ export async function generatePDF(trip, expenses) {
     tableLineWidth: 0.3,
   })
 
+  // ── Summary Section (after table) ──────────────
+  const allAdvances = await getAdvances()
+  const tripAdvances = allAdvances.filter(a => a.tripId === trip.id)
+  const totalAdvance = tripAdvances.reduce((s, a) => s + Number(a.amount || 0), 0)
+  const balanceDue = total - totalAdvance
+
+  const summaryY = doc.lastAutoTable.finalY + 10
+
+  // Summary box
+  const boxHeight = totalAdvance > 0 ? 38 : 28
+  doc.setFillColor(245, 246, 250)
+  doc.setDrawColor(210, 212, 220)
+  doc.setLineWidth(0.3)
+  doc.roundedRect(margin, summaryY, pageW - margin * 2, boxHeight, 2, 2, 'FD')
+
+  // Row 1 - Total Spent
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80, 80, 100)
+  doc.text('Total Spent', margin + 6, summaryY + 9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 30, 50)
+  doc.text(`Rs. ${total.toLocaleString('en-IN')}`, pageW - margin - 6, summaryY + 9, { align: 'right' })
+
+  // Row 1 right side - No. of expenses
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80, 80, 100)
+  doc.text(`${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`, pageW / 2, summaryY + 9, { align: 'center' })
+
+  // Divider
+  doc.setDrawColor(210, 212, 220)
+  doc.setLineWidth(0.3)
+  doc.line(margin + 2, summaryY + 13, pageW - margin - 2, summaryY + 13)
+
+  // Row 2 - Advance (only if exists)
+  let balanceRowY = summaryY + 22
+  if (totalAdvance > 0) {
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80, 80, 100)
+    doc.text('Advance Received', margin + 6, summaryY + 22)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(76, 175, 80)
+    doc.text(`− Rs. ${totalAdvance.toLocaleString('en-IN')}`, pageW - margin - 6, summaryY + 22, { align: 'right' })
+
+    doc.setDrawColor(210, 212, 220)
+    doc.line(margin + 2, summaryY + 26, pageW - margin - 2, summaryY + 26)
+    balanceRowY = summaryY + 35
+  }
+
+  // Balance Due row - dark background
+  const balanceBoxY = totalAdvance > 0 ? summaryY + 28 : summaryY + 15
+  const balanceBoxH = 10
+  doc.setFillColor(26, 26, 36)
+  doc.roundedRect(margin, balanceBoxY, pageW - margin * 2, balanceBoxH, 0, 0, 'F')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(9)
+  doc.text('Balance Due', margin + 6, balanceBoxY + 7)
+
+  const balanceColor = balanceDue > 0 ? [232, 93, 117] : [76, 175, 80]
+  doc.setTextColor(...balanceColor)
+  doc.text(
+    `Rs. ${Math.abs(balanceDue).toLocaleString('en-IN')}${balanceDue < 0 ? ' (excess)' : ''}`,
+    pageW - margin - 6, balanceBoxY + 7, { align: 'right' }
+  )
+
   // ── Bill Images ─────────────────────────────────
   const expensesWithImages = expenses.filter(e => e.imageIds && e.imageIds.length > 0)
 
   if (expensesWithImages.length > 0) {
     doc.addPage()
 
-    // Page header
     doc.setFillColor(15, 15, 20)
     doc.rect(0, 0, pageW, 22, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(12)
     doc.setFont('helvetica', 'bold')
     doc.text('Bill Images', margin, 14)
-
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(120, 120, 150)
@@ -122,34 +184,28 @@ export async function generatePDF(trip, expenses) {
         const dataUrl = await getImage(imgId)
         if (!dataUrl) continue
 
-        // New page if needed
         if (imgY + blockH > pageH - margin) {
           doc.addPage()
-
           doc.setFillColor(15, 15, 20)
           doc.rect(0, 0, pageW, 22, 'F')
           doc.setTextColor(255, 255, 255)
           doc.setFontSize(12)
           doc.setFont('helvetica', 'bold')
           doc.text('Bill Images (continued)', margin, 14)
-
           imgY = 30
           col = 0
         }
 
         const x = margin + col * (imgW + 8)
 
-        // Image border card
         doc.setFillColor(245, 246, 250)
         doc.setDrawColor(210, 212, 220)
         doc.setLineWidth(0.3)
         doc.roundedRect(x, imgY, imgW, imgH + labelH, 2, 2, 'FD')
 
-        // Draw image
         try {
           doc.addImage(dataUrl, 'JPEG', x + 2, imgY + 2, imgW - 4, imgH - 4)
         } catch (e) {
-          // skip broken image
           doc.setFillColor(220, 220, 230)
           doc.rect(x + 2, imgY + 2, imgW - 4, imgH - 4, 'F')
           doc.setTextColor(150, 150, 160)
@@ -157,16 +213,13 @@ export async function generatePDF(trip, expenses) {
           doc.text('Image unavailable', x + imgW / 2, imgY + imgH / 2, { align: 'center' })
         }
 
-        // Label strip
         doc.setFillColor(26, 26, 36)
         doc.roundedRect(x, imgY + imgH, imgW, labelH, 0, 0, 'F')
-
         doc.setTextColor(255, 255, 255)
         doc.setFontSize(7.5)
         doc.setFont('helvetica', 'bold')
         const labelTitle = expense.title || expense.category || '—'
         doc.text(labelTitle.length > 22 ? labelTitle.slice(0, 22) + '…' : labelTitle, x + 4, imgY + imgH + 6)
-
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(160, 160, 190)
         doc.setFontSize(7)
@@ -199,7 +252,6 @@ export async function generatePDF(trip, expenses) {
     )
   }
 
-  // ── Save ────────────────────────────────────────
   const filename = `${trip.name.replace(/\s+/g, '_')}_Expense_Report.pdf`
   doc.save(filename)
 }
