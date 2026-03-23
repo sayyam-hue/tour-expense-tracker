@@ -8,6 +8,13 @@ export async function generatePDF(trip, expenses) {
   const pageH = doc.internal.pageSize.getHeight()
   const margin = 14
 
+  // Sort expenses by date
+  const sortedExpenses = [...expenses].sort((a, b) => {
+    const dateA = new Date(a.expenseDate || a.date || 0)
+    const dateB = new Date(b.expenseDate || b.date || 0)
+    return dateA - dateB
+  })
+
   // ── Header ──────────────────────────────────────
   doc.setFillColor(15, 15, 20)
   doc.rect(0, 0, pageW, 36, 'F')
@@ -41,7 +48,7 @@ export async function generatePDF(trip, expenses) {
   doc.text(genDate, pageW - margin, 30, { align: 'right' })
 
   // ── Expense Table ───────────────────────────────
-  const tableData = expenses.map((e, i) => [
+  const tableData = sortedExpenses.map((e, i) => [
     i + 1,
     formatDate(e.expenseDate || e.date),
     e.title || e.category || '—',
@@ -49,7 +56,7 @@ export async function generatePDF(trip, expenses) {
     e.notes || '—'
   ])
 
-  const total = expenses.reduce((s, e) => s + Number(e.amount || 0), 0)
+  const total = sortedExpenses.reduce((s, e) => s + Number(e.amount || 0), 0)
 
   autoTable(doc, {
     startY: 44,
@@ -88,22 +95,21 @@ export async function generatePDF(trip, expenses) {
     tableLineWidth: 0.3,
   })
 
-  // ── Summary Section (after table) ──────────────
+  // ── Summary Section ─────────────────────────────
   const allAdvances = await getAdvances()
   const tripAdvances = allAdvances.filter(a => a.tripId === trip.id)
   const totalAdvance = tripAdvances.reduce((s, a) => s + Number(a.amount || 0), 0)
   const balanceDue = total - totalAdvance
 
   const summaryY = doc.lastAutoTable.finalY + 10
+  const boxHeight = totalAdvance > 0 ? 38 : 18
 
-  // Summary box
-  const boxHeight = totalAdvance > 0 ? 38 : 28
   doc.setFillColor(245, 246, 250)
   doc.setDrawColor(210, 212, 220)
   doc.setLineWidth(0.3)
   doc.roundedRect(margin, summaryY, pageW - margin * 2, boxHeight, 2, 2, 'FD')
 
-  // Row 1 - Total Spent
+  // Total spent + expense count
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80, 80, 100)
@@ -111,20 +117,16 @@ export async function generatePDF(trip, expenses) {
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(30, 30, 50)
   doc.text(`Rs. ${total.toLocaleString('en-IN')}`, pageW - margin - 6, summaryY + 9, { align: 'right' })
-
-  // Row 1 right side - No. of expenses
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80, 80, 100)
-  doc.text(`${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`, pageW / 2, summaryY + 9, { align: 'center' })
+  doc.text(`${sortedExpenses.length} expense${sortedExpenses.length !== 1 ? 's' : ''}`, pageW / 2, summaryY + 9, { align: 'center' })
 
-  // Divider
-  doc.setDrawColor(210, 212, 220)
-  doc.setLineWidth(0.3)
-  doc.line(margin + 2, summaryY + 13, pageW - margin - 2, summaryY + 13)
-
-  // Row 2 - Advance (only if exists)
-  let balanceRowY = summaryY + 22
+  // Advance row (only if exists)
   if (totalAdvance > 0) {
+    doc.setDrawColor(210, 212, 220)
+    doc.setLineWidth(0.3)
+    doc.line(margin + 2, summaryY + 13, pageW - margin - 2, summaryY + 13)
+
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(80, 80, 100)
     doc.text('Advance Received', margin + 6, summaryY + 22)
@@ -134,20 +136,17 @@ export async function generatePDF(trip, expenses) {
 
     doc.setDrawColor(210, 212, 220)
     doc.line(margin + 2, summaryY + 26, pageW - margin - 2, summaryY + 26)
-    balanceRowY = summaryY + 35
   }
 
-  // Balance Due row - dark background
-  const balanceBoxY = totalAdvance > 0 ? summaryY + 28 : summaryY + 15
+  // Balance due - dark row
+  const balanceBoxY = totalAdvance > 0 ? summaryY + 28 : summaryY + 8
   const balanceBoxH = 10
   doc.setFillColor(26, 26, 36)
   doc.roundedRect(margin, balanceBoxY, pageW - margin * 2, balanceBoxH, 0, 0, 'F')
-
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(9)
   doc.text('Balance Due', margin + 6, balanceBoxY + 7)
-
   const balanceColor = balanceDue > 0 ? [232, 93, 117] : [76, 175, 80]
   doc.setTextColor(...balanceColor)
   doc.text(
@@ -156,7 +155,7 @@ export async function generatePDF(trip, expenses) {
   )
 
   // ── Bill Images ─────────────────────────────────
-  const expensesWithImages = expenses.filter(e => e.imageIds && e.imageIds.length > 0)
+  const expensesWithImages = sortedExpenses.filter(e => e.imageIds && e.imageIds.length > 0)
 
   if (expensesWithImages.length > 0) {
     doc.addPage()

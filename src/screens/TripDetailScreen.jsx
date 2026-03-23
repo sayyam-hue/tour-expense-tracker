@@ -108,15 +108,14 @@ export default function TripDetailScreen() {
 
   return (
     <div className="screen">
-      {/* Top Bar */}
       <div className="top-bar">
         <button className="back-btn" onClick={() => navigate('/')}>← Back</button>
-        <h1 style={{ fontSize: 15, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <h1 style={{ fontSize: 15, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {trip.name}
         </h1>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button onClick={() => openEditTrip(trip)} style={{ fontSize: 18 }} title="Edit Trip">✏️</button>
-          <button onClick={handleGenerateReport} style={{ fontSize: 18 }} title="Generate Report">📄</button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button onClick={() => openEditTrip(trip)} style={{ fontSize: 18 }}>✏️</button>
+          <button onClick={handleGenerateReport} style={{ fontSize: 18 }}>📄</button>
           {trip.isClosed
             ? <button onClick={handleReopenTrip} style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>Reopen</button>
             : <button onClick={() => { setAmountReceived(String(totalSpent)); setShowCloseConfirm(true) }}
@@ -265,15 +264,12 @@ export default function TripDetailScreen() {
               <h2 style={{ fontSize: 18, fontWeight: 700 }}>Edit Trip</h2>
               <button onClick={() => setShowEditTrip(false)} style={{ color: 'var(--text-secondary)', fontSize: 24 }}>×</button>
             </div>
-
             <label style={labelStyle}>TRIP NAME</label>
             <input style={inputStyle} value={editName}
               onChange={e => setEditName(e.target.value)} autoFocus />
-
             <label style={{ ...labelStyle, marginTop: 16 }}>LOCATION</label>
             <input style={inputStyle} placeholder="e.g. Mumbai, Maharashtra"
               value={editLocation} onChange={e => setEditLocation(e.target.value)} />
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
               <div>
                 <label style={labelStyle}>FROM DATE</label>
@@ -286,7 +282,6 @@ export default function TripDetailScreen() {
                   onChange={e => setEditEndDate(e.target.value)} />
               </div>
             </div>
-
             <button className="btn-primary" style={{ marginTop: 24 }}
               onClick={handleSaveTrip} disabled={!editName.trim()}>
               Save Changes
@@ -304,7 +299,6 @@ export default function TripDetailScreen() {
               <button onClick={() => setShowCloseConfirm(false)}
                 style={{ color: 'var(--text-secondary)', fontSize: 24 }}>×</button>
             </div>
-
             <div style={{ background: 'var(--surface-alt)', borderRadius: 10, padding: 14, marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Total Expenses</span>
@@ -315,7 +309,6 @@ export default function TripDetailScreen() {
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{expenses.length}</span>
               </div>
             </div>
-
             <label style={labelStyle}>AMOUNT RECEIVED FROM COMPANY</label>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4,
               background: 'var(--surface-alt)', borderRadius: 10, padding: '14px',
@@ -329,7 +322,6 @@ export default function TripDetailScreen() {
             <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 24 }}>
               Default is full trip amount. Edit if partial payment received.
             </p>
-
             <button onClick={handleCloseTrip}
               style={{ width: '100%', padding: 16, borderRadius: 12, background: '#7ED321',
                 color: 'white', fontWeight: 700, fontSize: 16 }}>
@@ -345,27 +337,67 @@ export default function TripDetailScreen() {
 function ExpenseRow({ expense, onEdit, onDelete }) {
   const cat = CATEGORIES.find(c => c.name === expense.category) || CATEGORIES[CATEGORIES.length - 1]
   const mode = PAYMENT_MODES.find(m => m.name === expense.paymentMode)
+  const amount = Number(expense.amount || 0)
+  const isHighValue = amount >= 1000
 
   return (
-    <div className="card" style={{ marginBottom: 10, cursor: 'pointer' }} onClick={onEdit}>
+    <div className="card" style={{
+      marginBottom: 10,
+      cursor: 'pointer',
+      borderLeft: `3px solid ${cat.color}`,
+      borderRadius: 12,
+    }} onClick={onEdit}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', background: cat.color + '22',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%',
+          background: cat.color + '22',
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'center', fontSize: 20, flexShrink: 0
+        }}>
           {cat.icon}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontWeight: 600, fontSize: 15 }}>{expense.title || expense.category}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{formatDate(expense.expenseDate)}</span>
-            {mode && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>· {mode.icon} {mode.name}</span>}
-            {expense.notes && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>· {expense.notes}</span>}
+          <p style={{
+            fontWeight: isHighValue ? 700 : 600,
+            fontSize: isHighValue ? 16 : 15,
+            color: 'var(--text)', margin: 0
+          }}>
+            {expense.title || expense.category}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+              {formatDate(expense.expenseDate)}
+            </span>
+            {mode && (
+              <span style={{
+                fontSize: 10, color: cat.color,
+                background: cat.color + '18',
+                padding: '2px 8px', borderRadius: 10, fontWeight: 600
+              }}>
+                {mode.icon} {mode.name}
+              </span>
+            )}
           </div>
+          {expense.notes && (
+            <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3, marginBottom: 0 }}>
+              {expense.notes}
+            </p>
+          )}
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <p style={{ fontWeight: 800, fontSize: 15 }}>{formatCurrency(expense.amount)}</p>
+          <p style={{
+            fontWeight: 800,
+            fontSize: isHighValue ? 17 : 15,
+            color: isHighValue ? 'var(--accent)' : 'var(--text)',
+            margin: 0
+          }}>
+            {formatCurrency(amount)}
+          </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4, alignItems: 'center' }}>
             {expense.imageIds?.length > 0 && (
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>📎{expense.imageIds.length}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                📎{expense.imageIds.length}
+              </span>
             )}
             <button onClick={e => { e.stopPropagation(); onDelete() }}
               style={{ color: 'var(--danger)', fontSize: 14 }}>🗑</button>
