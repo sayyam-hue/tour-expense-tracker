@@ -16,6 +16,11 @@ export default function TripDetailScreen() {
   const [generatingReport, setGeneratingReport] = useState(false)
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [amountReceived, setAmountReceived] = useState('')
+  const [showEditTrip, setShowEditTrip] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editLocation, setEditLocation] = useState('')
+  const [editStartDate, setEditStartDate] = useState('')
+  const [editEndDate, setEditEndDate] = useState('')
 
   useEffect(() => { loadData() }, [id])
 
@@ -24,6 +29,26 @@ export default function TripDetailScreen() {
     setTrip(t)
     setExpenses(e)
     setLoading(false)
+  }
+
+  function openEditTrip(t) {
+    setEditName(t.name)
+    setEditLocation(t.location || '')
+    setEditStartDate(t.startDate || '')
+    setEditEndDate(t.endDate || '')
+    setShowEditTrip(true)
+  }
+
+  async function handleSaveTrip() {
+    await saveTrip({
+      ...trip,
+      name: editName.trim(),
+      location: editLocation.trim(),
+      startDate: editStartDate,
+      endDate: editEndDate
+    })
+    setShowEditTrip(false)
+    loadData()
   }
 
   async function handleDeleteExpense(expenseId) {
@@ -60,7 +85,6 @@ export default function TripDetailScreen() {
     setGeneratingReport(false)
   }
 
-  // ── Calculations ──
   const totalSpent = expenses.reduce((s, e) => s + Number(e.amount || 0), 0)
 
   const categoryTotals = CATEGORIES.map(cat => ({
@@ -91,18 +115,16 @@ export default function TripDetailScreen() {
           {trip.name}
         </h1>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button onClick={handleGenerateReport} style={{ fontSize: 20 }} title="Generate Report">📄</button>
+          <button onClick={() => openEditTrip(trip)} style={{ fontSize: 18 }} title="Edit Trip">✏️</button>
+          <button onClick={handleGenerateReport} style={{ fontSize: 18 }} title="Generate Report">📄</button>
           {trip.isClosed
             ? <button onClick={handleReopenTrip} style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>Reopen</button>
-            : <button onClick={() => {
-                setAmountReceived(String(totalSpent))
-                setShowCloseConfirm(true)
-              }} style={{ fontSize: 13, color: '#7ED321', fontWeight: 600 }}>Close</button>
+            : <button onClick={() => { setAmountReceived(String(totalSpent)); setShowCloseConfirm(true) }}
+                style={{ fontSize: 13, color: '#7ED321', fontWeight: 600 }}>Close</button>
           }
         </div>
       </div>
 
-      {/* Generating overlay */}
       {generatingReport && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 300,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -114,7 +136,6 @@ export default function TripDetailScreen() {
       )}
 
       <div style={{ padding: '0 20px 20px' }}>
-
         {/* Trip Info */}
         <div className="card" style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -150,7 +171,6 @@ export default function TripDetailScreen() {
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{expenses.length} expenses</p>
           </div>
 
-          {/* Category bar */}
           {categoryTotals.length > 0 && (
             <>
               <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 2, marginBottom: 10 }}>
@@ -233,25 +253,58 @@ export default function TripDetailScreen() {
         )}
       </div>
 
-      {/* FAB */}
       {!trip.isClosed && (
         <button className="fab" onClick={() => navigate(`/trip/${id}/add`)}>+</button>
       )}
 
+      {/* Edit Trip Modal */}
+      {showEditTrip && (
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Edit Trip</h2>
+              <button onClick={() => setShowEditTrip(false)} style={{ color: 'var(--text-secondary)', fontSize: 24 }}>×</button>
+            </div>
+
+            <label style={labelStyle}>TRIP NAME</label>
+            <input style={inputStyle} value={editName}
+              onChange={e => setEditName(e.target.value)} autoFocus />
+
+            <label style={{ ...labelStyle, marginTop: 16 }}>LOCATION</label>
+            <input style={inputStyle} placeholder="e.g. Mumbai, Maharashtra"
+              value={editLocation} onChange={e => setEditLocation(e.target.value)} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
+              <div>
+                <label style={labelStyle}>FROM DATE</label>
+                <input style={inputStyle} type="date" value={editStartDate}
+                  onChange={e => setEditStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>TO DATE</label>
+                <input style={inputStyle} type="date" value={editEndDate}
+                  onChange={e => setEditEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            <button className="btn-primary" style={{ marginTop: 24 }}
+              onClick={handleSaveTrip} disabled={!editName.trim()}>
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Close Trip Modal */}
       {showCloseConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200,
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--surface)', borderRadius: '20px 20px 0 0',
-            padding: '24px 20px 48px', width: '100%', maxWidth: 480 }}>
-
+        <div style={modalOverlay}>
+          <div style={modalBox}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700 }}>Close Trip</h2>
               <button onClick={() => setShowCloseConfirm(false)}
                 style={{ color: 'var(--text-secondary)', fontSize: 24 }}>×</button>
             </div>
 
-            {/* Summary */}
             <div style={{ background: 'var(--surface-alt)', borderRadius: 10, padding: 14, marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Total Expenses</span>
@@ -263,22 +316,15 @@ export default function TripDetailScreen() {
               </div>
             </div>
 
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 600,
-              color: 'var(--text-secondary)', letterSpacing: 1, marginBottom: 8 }}>
-              AMOUNT RECEIVED FROM COMPANY
-            </label>
+            <label style={labelStyle}>AMOUNT RECEIVED FROM COMPANY</label>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4,
               background: 'var(--surface-alt)', borderRadius: 10, padding: '14px',
               border: '1px solid var(--separator)', marginBottom: 8 }}>
               <span style={{ fontSize: 20, color: 'var(--text-secondary)' }}>₹</span>
-              <input
-                type="number" inputMode="decimal"
-                value={amountReceived}
+              <input type="number" inputMode="decimal" value={amountReceived}
                 onChange={e => setAmountReceived(e.target.value)}
-                style={{ fontSize: 28, fontWeight: 800, background: 'none',
-                  color: 'var(--text)', width: '100%' }}
-                autoFocus
-              />
+                style={{ fontSize: 28, fontWeight: 800, background: 'none', color: 'var(--text)', width: '100%' }}
+                autoFocus />
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 24 }}>
               Default is full trip amount. Edit if partial payment received.
@@ -308,9 +354,7 @@ function ExpenseRow({ expense, onEdit, onDelete }) {
           {cat.icon}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontWeight: 600, fontSize: 15 }}>
-            {expense.title || expense.category}
-          </p>
+          <p style={{ fontWeight: 600, fontSize: 15 }}>{expense.title || expense.category}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{formatDate(expense.expenseDate)}</span>
             {mode && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>· {mode.icon} {mode.name}</span>}
@@ -331,3 +375,8 @@ function ExpenseRow({ expense, onEdit, onDelete }) {
     </div>
   )
 }
+
+const modalOverlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 200 }
+const modalBox = { background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 48px', width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }
+const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: 1, marginBottom: 8 }
+const inputStyle = { width: '100%', padding: '14px', background: 'var(--surface-alt)', border: '1px solid var(--separator)', borderRadius: 10, fontSize: 15, color: 'var(--text)', display: 'block' }
